@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useEffect, useState } from 'react';
 // import { ToastContainer, toast } from 'react-toastify';
 // // import 'react-toastify/dist/ReactToastify.css';
 
@@ -13,143 +13,85 @@ import errorImage from './components/error.jpg';
 import cover from './components/cover.jpg';
 import Container from './components/Container';
 
-class App extends Component {
-  state = {
-    query: '',
-    gallery: [],
-    page: 1,
-    error: null,
-    status: 'idle',
-    // showModal: false,
+const Status = {
+  IDLE: 'idle',
+  PENDING: 'pending',
+  RESOLVED: 'resolved',
+  REJECTED: 'rejected',
+};
+
+export default function App() {
+  const [gallery, setGallery] = useState([]);
+  const [query, setQuery] = useState(null);
+  const [page, setPage] = useState(0);
+  const [status, setStatus] = useState(Status.IDLE);
+  const [error, setError] = useState(null);
+  const [total, setTotal] = useState(null);
+
+  const handleSearchForm = query => {
+    setQuery(query);
+    setPage(1);
+    setGallery([]);
   };
 
-  componentDidUpdate(prevProps, prevState) {
-    const prevQuery = prevState.query;
-    const nextQuery = this.state.query;
-    const page = this.state.page;
+  const handleLoadMore = () => {
+    setPage(prev => prev + 1);
+  };
 
-    if (prevQuery !== nextQuery) {
-      this.setState({
-        status: 'pending',
-        // gallery: [],
-        // page: 1,
-        // error: null,
-      });
-
-      Api.fetchImage(nextQuery, page)
-        // .then(query => this.setState({ query, status: 'resolved' }))
-        .then(data => {
-          if (data.total < 1) {
-            return Promise.reject(
-              new Error(`По вашему запрсу "${nextQuery}" не найдено`),
-            );
-          }
-
-          this.setState(prevState => {
-            return {
-              gallery: data.hits,
-              status: 'resolved',
-              page: prevState.page + 1,
-            };
-          });
-        })
-        .catch(error => this.setState({ error, status: 'rejected' }));
+  useEffect(() => {
+    if (!query) {
+      return;
     }
-    window.scrollTo({
-      top: document.documentElement.scrollHeight,
-      behavior: 'smooth',
-    });
-  }
-
-  handleSearchForm = query => {
-    this.setState({
-      query,
-      page: 1,
-    });
-  };
-
-  // inputQuery = () => {
-  //   const { nextQuery } = this.state;
-  //   if (nextQuery.trim() === '') {
-  //     // return toast.info('Введите запрос');
-  //     return alert('Введите запрос');
-  //   }
-  // };
-
-  //   // if (nextQuery.trim() === '') {
-  //   //   const notify = () => toast.error('Введите запрос');
-  //   //   notify();
-  //   // }
-
-  handleLoadMore = () => {
-    const nextQuery = this.state.query;
-    const page = this.state.page;
-
-    this.setState({
-      // status: 'pending',
-    });
-    Api.fetchImage(nextQuery, page)
+    setStatus(Status.PENDING);
+    Api.fetchImage(query, page)
       .then(data => {
-        this.setState(prevState => {
-          return {
-            gallery: [...prevState.gallery, ...data.hits],
-            // status: 'resolved',
-            page: prevState.page + 1,
-          };
-        });
+        setTotal(data.total);
+        if (data.total < 1) {
+          return Promise.reject(
+            new Error(`Не удалось найти картинки по запросу ${query}`),
+          );
+        }
+        setGallery(prev => [...prev, ...data.hits]);
+        setStatus(Status.RESOLVED);
       })
-      .catch(error => this.setState({ error, status: 'reject' }));
-  };
+      .catch(error => {
+        setError(error);
+        setStatus(Status.REJECTED);
+      });
+  }, [page, query]);
 
-  render() {
-    const { status, gallery, error } = this.state;
+  window.scrollTo({
+    top: document.documentElement.scrollHeight,
+    behavior: 'smooth',
+  });
 
-    if (status === 'idle') {
-      return (
-        <Container>
-          <Searchbar onSubmit={this.handleSearchForm} />
-          <div>
-            <p> Нужно проверить... 😜</p>
-            <img src={cover} alt="cover" />
-          </div>
-        </Container>
-      );
-    }
+  return (
+    <Container>
+      <Searchbar onSubmit={handleSearchForm} />
+      {/* Вариант №1 */}
+      {(status === Status.IDLE || status === Status.REJECTED) && (
+        <div>
+          <p>
+            {(status === Status.IDLE && 'Нужно проверить... 😜') ||
+              (status === Status.REJECTED && error.message)}
+          </p>
+          <img
+            src={
+              (status === Status.IDLE && cover) ||
+              (status === Status.REJECTED && errorImage)
+            }
+            alt=""
+          />
+        </div>
+      )}
 
-    if (status === 'pending') {
-      return (
-        <Container>
-          <Searchbar onSubmit={this.handleSearchForm} />
+      {(status === Status.RESOLVED || status === Status.PENDING) && (
+        <>
           <ImageGallery gallery={gallery} />
-          <Button />
-          <Loader />
-        </Container>
-      );
-    }
-
-    if (status === 'rejected') {
-      return (
-        <Container>
-          <Searchbar onSubmit={this.handleSearchForm} />
-          <div>
-            <p>{error.message}</p>
-            <img src={errorImage} alt="oops" />
-          </div>
-          {/* <ToastContainer /> */}
-        </Container>
-      );
-    }
-
-    if (status === 'resolved') {
-      return (
-        <Container>
-          <Searchbar onSubmit={this.handleSearchForm} />
-          <ImageGallery gallery={gallery} onClose={this.props.toggleModal} />
-          <Button onClick={this.handleLoadMore} />
-        </Container>
-      );
-    }
-  }
+          {total > gallery.length && <Button onClick={handleLoadMore} />}
+          {status === Status.PENDING && <Loader />}
+        </>
+      )}
+    </Container>
+  );
 }
-
-export default App;

@@ -1,55 +1,46 @@
-import { Component } from 'react';
-
+import { useState } from 'react';
 import Modal from '../Modal';
-import PropTyps from 'prop-types';
+import PropTypes from 'prop-types';
 
 import s from './ImageGalleryItem.module.css';
 
-class ImageGalleryItem extends Component {
-  static PropTyps = {
-    id: PropTyps.number.isRequired,
-    webformatURL: PropTyps.string.isRequired,
-    largeImageURL: PropTyps.string.isRequired,
+export default function ImageGalleryItem({
+  imageData: { id, webformatURL, largeImageURL },
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [image, setImage] = useState(null);
+
+  const toggleModal = () => {
+    setShowModal(prev => !prev);
   };
 
-  state = {
-    showModal: false,
-    image: null,
-  };
-
-  toggleModal = () => {
-    this.setState(({ showModal }) => {
-      return { showModal: !showModal };
-    });
+  const handleImageClick = e => {
+    setImage(e.target.dataset.img);
+    toggleModal();
   };
 
   // this.setState(({ showModal }) => ({ showModal: !showModal }));
 
-  handleImageClick = e => {
-    this.setState({
-      image: e.target.dataset.img,
-    });
-    this.toggleModal();
-  };
-
-  render() {
-    const { showModal, image } = this.state;
-    const { id, webformatURL, largeImageURL } = this.props.imageData;
-    return (
-      <>
-        <li className={s.ImageGalleryItem}>
-          <img
-            src={webformatURL}
-            alt={id}
-            className={s.ImageGalleryItemImage}
-            data-img={largeImageURL}
-            onClick={this.handleImageClick}
-          />
-        </li>
-        {showModal && <Modal onClose={this.toggleModal} src={image} />}
-      </>
-    );
-  }
+  return (
+    <>
+      <li className={s.ImageGalleryItem}>
+        <img
+          src={webformatURL}
+          alt={id}
+          className={s.ImageGalleryItemImage}
+          data-img={largeImageURL}
+          onClick={handleImageClick}
+        />
+      </li>
+      {showModal && <Modal onClose={toggleModal} src={image} />}
+    </>
+  );
 }
 
-export default ImageGalleryItem;
+ImageGalleryItem.propTyps = {
+  imageData: PropTypes.shape({
+    id: PropTypes.number,
+    webformatURL: PropTypes.string,
+    largeImageURL: PropTypes.string,
+  }),
+};
